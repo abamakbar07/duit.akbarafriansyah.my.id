@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Finance Tracker
 
-## Getting Started
+A lightweight Next.js app deployed on Vercel to track daily transactions stored in Supabase.
 
-First, run the development server:
+## Prerequisites
+
+Set the following environment variables for server-side features and the exporter:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Keep these values **server-only** (Vercel, GitHub Actions, or your shell session). They must never be exposed to the browser or committed to the repository.
+
+## Development
+
+Install dependencies and start the dev server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Transaction Backups
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Run an export locally
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+SUPABASE_URL=... \
+SUPABASE_SERVICE_ROLE_KEY=... \
+pnpm export:transactions
+```
 
-## Learn More
+This command compiles the TypeScript exporter, runs it, and writes both JSON and CSV files under `public/backups/<timestamp>.{json,csv}`. Files are ignored by Git but remain available locally for manual download.
 
-To learn more about Next.js, take a look at the following resources:
+### Scheduled exports
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+A GitHub Actions workflow (`.github/workflows/export.yml`) runs daily at 02:00 UTC. It executes the same script with repository secrets and uploads the generated `public/backups` directory as a run artifact. Download the latest artifact from the workflow run to retrieve off-site backups.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Manual retrieval
 
-## Deploy on Vercel
+1. Navigate to the **Actions** tab in GitHub.
+2. Open the latest **Export transactions backup** run.
+3. Download the `transactions-backup` artifact – it contains the JSON and CSV files produced on that run.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Backups rely on the Supabase service role key, which grants full access. Store it only in secure server-side environments (Vercel project settings or GitHub repository secrets).
+- The exporter queries the `transactions` table ordered by `date` and `created_at` to produce deterministic outputs.
