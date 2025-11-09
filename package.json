@@ -10,19 +10,20 @@
     "export:transactions": "pnpm exec tsc --project tsconfig.scripts.json && node .scripts-dist/scripts/export-transactions.js"
   },
   "dependencies": {
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "next": "16.0.1",
-    "@supabase/supabase-js": "^2.47.10"
+    "@supabase/postgrest-js": "^2.80.0",
+    "@supabase/supabase-js": "^2.47.10",
+    "next": "14.2.33",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
-    "eslint-config-next": "16.0.1"
+    "eslint-config-next": "16.0.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
-
 import { createClient } from '@/lib/supabase';
-import type { Transaction, TransactionType } from '@/types/transaction';
+import type { TransactionType } from '@/types/transaction';
 
 interface SummaryFilters {
   startDate?: string;
@@ -18,9 +16,7 @@ interface AggregateRow {
   category?: string;
 }
 
-type FilterBuilder<Result> = PostgrestFilterBuilder<Transaction, Result, unknown>;
-
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const filters: SummaryFilters = {
     startDate: searchParams.get('startDate') ?? undefined,
@@ -31,12 +27,12 @@ export async function GET(request: NextRequest) {
 
   const supabase = createClient();
 
-  const totalsQuery = applyFilters<AggregateRow[]>(
+  const totalsQuery = applyFilters(
     supabase.from('transactions').select('type, total:amount.sum()'),
     filters
   );
 
-  const byDayQuery = applyFilters<AggregateRow[]>(
+  const byDayQuery = applyFilters(
     supabase
       .from('transactions')
       .select('date, type, total:amount.sum()')
@@ -44,7 +40,7 @@ export async function GET(request: NextRequest) {
     filters
   );
 
-  const byCategoryQuery = applyFilters<AggregateRow[]>(
+  const byCategoryQuery = applyFilters(
     supabase
       .from('transactions')
       .select('category, type, total:amount.sum()')
@@ -53,9 +49,9 @@ export async function GET(request: NextRequest) {
   );
 
   const [totalsResult, dayResult, categoryResult] = await Promise.all([
-    totalsQuery.returns<AggregateRow[]>(),
-    byDayQuery.returns<AggregateRow[]>(),
-    byCategoryQuery.returns<AggregateRow[]>(),
+    totalsQuery.returns(),
+    byDayQuery.returns(),
+    byCategoryQuery.returns(),
   ]);
 
   if (totalsResult.error) {
@@ -81,7 +77,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-function applyFilters<Result>(query: FilterBuilder<Result>, filters: SummaryFilters): FilterBuilder<Result> {
+function applyFilters(query: any, filters: SummaryFilters) {
   let builder = query;
 
   if (filters.startDate) {
