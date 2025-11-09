@@ -1,7 +1,7 @@
 # AGENT.md — Personal Finance Tracker Context
 
 ## Project Summary
-This app is a **simple personal finance tracker** built with **Next.js (Vercel)** and a lightweight database (**Supabase or Turso**).  
+This app is a **simple personal finance tracker** built with **Next.js (Vercel)** and a lightweight database (**Supabase**).  
 It is **for personal use only** — no authentication, no multi-user support, and no sensitive data beyond my own daily transactions.
 
 The app records and summarizes daily financial data with focus on:
@@ -22,7 +22,7 @@ The app records and summarizes daily financial data with focus on:
 ## Technical Context
 - **Frontend:** Next.js (App Router), React, Tailwind.
 - **Backend:** Next.js API routes.
-- **Database:** Supabase (PostgreSQL) or Turso (SQLite).
+- **Database:** Supabase (PostgreSQL).
 - **Data Model:** Single `transactions` table with columns  
   `(id, date, account, category, subcategory, note, amount, type, created_at)`.
 - **Automation Layer:** Public API endpoints (`/api/add`, `/api/list`, `/api/summary`) for external integrations.
