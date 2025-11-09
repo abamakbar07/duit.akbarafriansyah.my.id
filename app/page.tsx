@@ -123,8 +123,9 @@ export default async function Home() {
     {
       label: 'Shortcuts trigger',
       description: 'Open the pre-filled Shortcut for quick manual logging on iOS.',
-      value: 'shortcuts://run-shortcut?name=Log%20Expense&input=text',
-      href: 'shortcuts://run-shortcut?name=Log%20Expense&input=text',
+      // Provide an explicit text parameter so Shortcuts receives text input.
+      value: 'shortcuts://run-shortcut?name=Log%20Expense&input=text&text=',
+      href: 'shortcuts://run-shortcut?name=Log%20Expense&input=text&text=',
     },
   ];
 
