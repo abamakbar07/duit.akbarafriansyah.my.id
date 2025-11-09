@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "export:transactions": "pnpm exec tsc --project tsconfig.scripts.json && node .scripts-dist/scripts/export-transactions.js"
   },
   "dependencies": {
     "react": "19.2.0",
