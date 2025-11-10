@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
-import type { TransactionType } from '@/types/transaction';
+import { normalizeCategorySeries, normalizeDailySeries, normalizeTotals } from '@/lib/summary';
 
 interface SummaryFilters {
   startDate?: string;
   endDate?: string;
   account?: string;
-  category?: string;
-}
-
-interface AggregateRow {
-  type: TransactionType;
-  total: number | null;
-  date?: string;
   category?: string;
 }
 
@@ -77,7 +70,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 }
 
-function applyFilters(query: any, filters: SummaryFilters) {
+export function applyFilters(query: any, filters: SummaryFilters) {
   let builder = query;
 
   if (filters.startDate) {
@@ -97,61 +90,4 @@ function applyFilters(query: any, filters: SummaryFilters) {
   }
 
   return builder;
-}
-
-function normalizeTotals(rows: AggregateRow[]) {
-  const income = Number(rows.find((row) => row.type === 'income')?.total ?? 0);
-  const expense = Number(rows.find((row) => row.type === 'expense')?.total ?? 0);
-
-  return {
-    income,
-    expense,
-    net: income - expense,
-  };
-}
-
-function normalizeDailySeries(rows: AggregateRow[]) {
-  const map = new Map<string, { date: string; income: number; expense: number }>();
-
-  for (const row of rows) {
-    if (!row.date) {
-      continue;
-    }
-
-    const total = Number(row.total ?? 0);
-    const existing = map.get(row.date) ?? { date: row.date, income: 0, expense: 0 };
-
-    if (row.type === 'income') {
-      existing.income = total;
-    } else {
-      existing.expense = total;
-    }
-
-    map.set(row.date, existing);
-  }
-
-  return Array.from(map.values());
-}
-
-function normalizeCategorySeries(rows: AggregateRow[]) {
-  const map = new Map<string, { category: string; income: number; expense: number }>();
-
-  for (const row of rows) {
-    if (!row.category) {
-      continue;
-    }
-
-    const total = Number(row.total ?? 0);
-    const existing = map.get(row.category) ?? { category: row.category, income: 0, expense: 0 };
-
-    if (row.type === 'income') {
-      existing.income = total;
-    } else {
-      existing.expense = total;
-    }
-
-    map.set(row.category, existing);
-  }
-
-  return Array.from(map.values());
 }

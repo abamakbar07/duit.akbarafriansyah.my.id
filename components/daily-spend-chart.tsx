@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 
+import { formatCurrency } from '@/lib/currency';
+
 type DailyPoint = {
   date: string;
   income: number;
@@ -11,14 +13,6 @@ type DailyPoint = {
 type Props = {
   data: DailyPoint[];
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 function formatLabel(date: string) {
   const parsed = new Date(date);
