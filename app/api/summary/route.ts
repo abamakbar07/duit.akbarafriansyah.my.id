@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 
+import { fetchBudgetSummary } from '@/lib/budgets';
 import { createClient } from '@/lib/supabase';
 import { normalizeCategorySeries, normalizeDailySeries, normalizeTotals } from '@/lib/summary';
 
@@ -43,11 +44,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     filters
   );
 
-  const [totalsResult, dayResult, categoryResult] = await Promise.all([
-    totalsQuery.returns(),
-    byDayQuery.returns(),
-    byCategoryQuery.returns(),
-  ]);
+  let totalsResult;
+  let dayResult;
+  let categoryResult;
+  let budgetSummary: Awaited<ReturnType<typeof fetchBudgetSummary>> | null = null;
+
+  try {
+    [totalsResult, dayResult, categoryResult, budgetSummary] = await Promise.all([
+      totalsQuery.returns(),
+      byDayQuery.returns(),
+      byCategoryQuery.returns(),
+      fetchBudgetSummary(supabase, { account: filters.account }),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to compute summary';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   if (totalsResult.error) {
     return NextResponse.json({ error: totalsResult.error.message }, { status: 500 });
@@ -69,6 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     totals,
     byDay,
     byCategory,
+    budgets: budgetSummary,
   });
 }
 
