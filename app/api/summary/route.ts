@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 
 import { fetchBudgetSummary } from '@/lib/budgets';
 import { createClient } from '@/lib/supabase';
-import { normalizeCategorySeries, normalizeDailySeries, normalizeTotals } from '@/lib/summary';
+import {
+  applySummaryFilters,
+  normalizeCategorySeries,
+  normalizeDailySeries,
+  normalizeTotals,
+  type AggregateRow,
+  type SummaryFilterOptions,
+} from '@/lib/summary';
 
-interface SummaryFilters {
-  startDate?: string;
-  endDate?: string;
-  account?: string;
-  category?: string;
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
-  const filters: SummaryFilters = {
+  const filters: SummaryFilterOptions = {
     startDate: searchParams.get('startDate') ?? undefined,
     endDate: searchParams.get('endDate') ?? undefined,
     account: searchParams.get('account') ?? undefined,
@@ -23,12 +24,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const supabase = createClient();
 
-  const totalsQuery = applyFilters(
+  const totalsQuery = applySummaryFilters(
     supabase.from('transactions').select('type, total:amount.sum()'),
     filters
   );
 
-  const byDayQuery = applyFilters(
+  const byDayQuery = applySummaryFilters(
     supabase
       .from('transactions')
       .select('date, type, total:amount.sum()')
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     filters
   );
 
-  const byCategoryQuery = applyFilters(
+  const byCategoryQuery = applySummaryFilters(
     supabase
       .from('transactions')
       .select('category, type, total:amount.sum()')
@@ -44,67 +45,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     filters
   );
 
-  let totalsResult;
-  let dayResult;
-  let categoryResult;
-  let budgetSummary: Awaited<ReturnType<typeof fetchBudgetSummary>> | null = null;
-
   try {
-    [totalsResult, dayResult, categoryResult, budgetSummary] = await Promise.all([
-      totalsQuery.returns(),
-      byDayQuery.returns(),
-      byCategoryQuery.returns(),
-      fetchBudgetSummary(supabase, { account: filters.account }),
-    ]);
+    const [totalsResult, dayResult, categoryResult, budgetSummary] =
+      await Promise.all([
+        totalsQuery.returns<AggregateRow[]>(),
+        byDayQuery.returns<AggregateRow[]>(),
+        byCategoryQuery.returns<AggregateRow[]>(),
+        fetchBudgetSummary(supabase, { account: filters.account }),
+      ]);
+
+    if (totalsResult.error) {
+      return NextResponse.json({ error: totalsResult.error.message }, { status: 500 });
+    }
+
+    if (dayResult.error) {
+      return NextResponse.json({ error: dayResult.error.message }, { status: 500 });
+    }
+
+    if (categoryResult.error) {
+      return NextResponse.json({ error: categoryResult.error.message }, { status: 500 });
+    }
+
+    const totals = normalizeTotals(totalsResult.data ?? []);
+    const byDay = normalizeDailySeries(dayResult.data ?? []);
+    const byCategory = normalizeCategorySeries(categoryResult.data ?? []);
+
+    return NextResponse.json({
+      totals,
+      byDay,
+      byCategory,
+      budgets: budgetSummary ?? null,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to compute summary';
     return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  if (totalsResult.error) {
-    return NextResponse.json({ error: totalsResult.error.message }, { status: 500 });
-  }
-
-  if (dayResult.error) {
-    return NextResponse.json({ error: dayResult.error.message }, { status: 500 });
-  }
-
-  if (categoryResult.error) {
-    return NextResponse.json({ error: categoryResult.error.message }, { status: 500 });
-  }
-
-  const totals = normalizeTotals(totalsResult.data ?? []);
-  const byDay = normalizeDailySeries(dayResult.data ?? []);
-  const byCategory = normalizeCategorySeries(categoryResult.data ?? []);
-
-  return NextResponse.json({
-    totals,
-    byDay,
-    byCategory,
-    budgets: budgetSummary,
-  });
-}
-
-type FilterableQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, unknown>;
-
-export function applyFilters<T extends FilterableQuery>(query: T, filters: SummaryFilters): T {
-  let builder = query;
-
-  if (filters.startDate) {
-    builder = builder.gte('date', filters.startDate);
-  }
-
-  if (filters.endDate) {
-    builder = builder.lte('date', filters.endDate);
-  }
-
-  if (filters.account) {
-    builder = builder.eq('account', filters.account);
-  }
-
-  if (filters.category) {
-    builder = builder.eq('category', filters.category);
-  }
-
-  return builder;
 }

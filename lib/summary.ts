@@ -1,4 +1,14 @@
+import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import type { TransactionType } from '@/types/transaction';
+
+type FilterableQuery = PostgrestFilterBuilder<any, any, any, any>;
+
+export interface SummaryFilterOptions {
+  startDate?: string;
+  endDate?: string;
+  account?: string;
+  category?: string;
+}
 
 export interface AggregateRow {
   type: TransactionType;
@@ -62,4 +72,29 @@ export function normalizeCategorySeries(rows: AggregateRow[]) {
   }
 
   return Array.from(map.values());
+}
+
+export function applySummaryFilters<T extends FilterableQuery>(
+  query: T,
+  filters: SummaryFilterOptions
+): T {
+  let builder = query;
+
+  if (filters.startDate) {
+    builder = builder.gte('date', filters.startDate);
+  }
+
+  if (filters.endDate) {
+    builder = builder.lte('date', filters.endDate);
+  }
+
+  if (filters.account) {
+    builder = builder.eq('account', filters.account);
+  }
+
+  if (filters.category) {
+    builder = builder.eq('category', filters.category);
+  }
+
+  return builder;
 }

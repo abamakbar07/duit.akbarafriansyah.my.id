@@ -1,4 +1,4 @@
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getBudgetConfig } from '@/lib/config';
 import type {
@@ -9,12 +9,6 @@ import type {
 
 interface BudgetFilters {
   account?: string;
-}
-
-type TransactionsQueryBuilder = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, unknown>;
-
-interface TransactionsClient {
-  from(table: 'transactions'): TransactionsQueryBuilder;
 }
 
 function formatDate(date: Date): string {
@@ -68,21 +62,18 @@ function mapAccountStatuses(
   });
 }
 
-function applyBudgetFilters(
-  query: TransactionsQueryBuilder,
-  filters: BudgetFilters
-): TransactionsQueryBuilder {
-  let builder = query.eq('type', 'expense');
+function applyBudgetFilters(query: unknown, filters: BudgetFilters) {
+  let builder = (query as any).eq('type', 'expense');
 
   if (filters.account) {
-    builder = builder.eq('account', filters.account);
+    builder = (builder as any).eq('account', filters.account);
   }
 
   return builder;
 }
 
 export async function fetchBudgetSummary(
-  supabase: TransactionsClient,
+  supabase: SupabaseClient,
   filters: BudgetFilters = {}
 ): Promise<BudgetSummary | null> {
   const config = getBudgetConfig();
@@ -97,27 +88,27 @@ export async function fetchBudgetSummary(
   const period = getDefaultPeriod();
 
   const categoryTotalsPromise = hasCategoryBudgets
-    ? applyBudgetFilters(
+    ? (applyBudgetFilters(
         supabase
           .from('transactions')
           .select('category, total:amount.sum()')
           .gte('date', period.start)
           .lte('date', period.end)
-          .in('category', Object.keys(categories)),
+          .in('category', Object.keys(categories)) as any,
         filters
-      ).returns<{ category: string | null; total: number | null }[]>()
+      ) as any).returns()
     : Promise.resolve({ data: [], error: null } as const);
 
   const accountTotalsPromise = hasAccountBudgets
-    ? applyBudgetFilters(
+    ? (applyBudgetFilters(
         supabase
           .from('transactions')
           .select('account, total:amount.sum()')
           .gte('date', period.start)
           .lte('date', period.end)
-          .in('account', Object.keys(accounts)),
+          .in('account', Object.keys(accounts)) as any,
         filters
-      ).returns<{ account: string | null; total: number | null }[]>()
+      ) as any).returns()
     : Promise.resolve({ data: [], error: null } as const);
 
   const [categoryTotals, accountTotals] = await Promise.all([
