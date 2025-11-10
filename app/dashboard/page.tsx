@@ -1,11 +1,13 @@
 import { headers } from 'next/headers';
 
+import { BudgetStatus } from '@/components/dashboard/budget-status';
 import { CategoryBreakdownChart } from '@/components/dashboard/category-breakdown-chart';
 import { DailySpendCard } from '@/components/dashboard/daily-spend-card';
 import { DashboardFilters } from '@/components/dashboard/dashboard-filters';
 import { DashboardKpiCard } from '@/components/dashboard/kpi-card';
 import { TransactionsTable } from '@/components/dashboard/transactions-table';
 import { formatCurrency } from '@/lib/currency';
+import type { BudgetSummary } from '@/types/budget';
 import type { Transaction } from '@/types/transaction';
 
 type SummaryResponse = {
@@ -24,6 +26,7 @@ type SummaryResponse = {
     income: number;
     expense: number;
   }>;
+  budgets: BudgetSummary | null;
 };
 
 type DashboardFiltersState = {
@@ -137,6 +140,7 @@ export default async function Dashboard({
   ).filter(Boolean);
 
   const contextLabel = filters.startDate || filters.endDate || filters.account || filters.category ? 'Selected range' : 'All time';
+  const budgetSummary = summary?.budgets ?? null;
 
   const kpis = [
     {
@@ -182,6 +186,8 @@ export default async function Dashboard({
           <DailySpendCard data={summary?.byDay ?? []} />
           <CategoryBreakdownChart data={summary?.byCategory ?? []} />
         </section>
+
+        {budgetSummary ? <BudgetStatus summary={budgetSummary} /> : null}
 
         <TransactionsTable
           transactions={displayedTransactions}
