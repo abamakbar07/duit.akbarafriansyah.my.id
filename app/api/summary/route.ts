@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
+
 import { createClient } from '@/lib/supabase';
 import { normalizeCategorySeries, normalizeDailySeries, normalizeTotals } from '@/lib/summary';
 
@@ -70,7 +72,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 }
 
-export function applyFilters(query: any, filters: SummaryFilters) {
+type FilterableQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, unknown>;
+
+export function applyFilters<T extends FilterableQuery>(query: T, filters: SummaryFilters): T {
   let builder = query;
 
   if (filters.startDate) {
