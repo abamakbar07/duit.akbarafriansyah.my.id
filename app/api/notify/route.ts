@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { fetchBudgetSummary } from '@/lib/budgets';
 import { createClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 async function dispatchWebhook(payload: unknown) {
   const webhookUrl = process.env.BUDGET_NOTIFY_WEBHOOK_URL;
 

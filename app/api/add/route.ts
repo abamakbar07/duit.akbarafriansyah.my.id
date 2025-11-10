@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase';
 import { validateTransactionPayload } from '@/lib/transactions';
 import type { Transaction } from '@/types/transaction';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   let payload;
 
