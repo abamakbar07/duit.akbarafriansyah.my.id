@@ -2,6 +2,11 @@
 
 A lightweight Next.js app deployed on Vercel to track daily transactions stored in Supabase.
 
+## Features
+
+- **Spending snapshot landing page:** At-a-glance KPIs, daily trend, and latest transactions sourced straight from Supabase.
+- **Interactive dashboard (`/dashboard`):** Composable widgets with filters for date range, account, and category alongside daily and category visualizations.
+
 ## Prerequisites
 
 Set the following environment variables for server-side features and the exporter:

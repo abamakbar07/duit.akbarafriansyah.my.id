@@ -1,6 +1,8 @@
-import dynamic from 'next/dynamic';
 import { headers } from 'next/headers';
 
+import { DailySpendCard } from '@/components/dashboard/daily-spend-card';
+import { DashboardKpiCard } from '@/components/dashboard/kpi-card';
+import { TransactionsTable } from '@/components/dashboard/transactions-table';
 import { QuickLinkButton } from '@/components/quick-link-button';
 import { formatCurrency } from '@/lib/currency';
 import type { Transaction } from '@/types/transaction';
@@ -22,14 +24,6 @@ type SummaryResponse = {
     expense: number;
   }>;
 };
-
-const DailySpendChart = dynamic(() => import('@/components/daily-spend-chart'), {
-  loading: () => (
-    <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white text-sm text-zinc-500">
-      Loading trend...
-    </div>
-  ),
-});
 
 async function computeBaseUrl() {
   const headersList = await headers();
@@ -109,6 +103,12 @@ export default async function Home() {
 
   const automationCommands = [
     {
+      label: 'Interactive dashboard',
+      description: 'Launch the filterable dashboard for deeper dives into recent activity.',
+      value: `${baseUrl}/dashboard`,
+      href: `${baseUrl}/dashboard`,
+    },
+    {
       label: 'cURL ingestion',
       description: 'Fire-and-forget POST to /api/add from any automation runner.',
       value: `curl -X POST ${baseUrl}/api/add -H 'Content-Type: application/json' -d '{"date":"${today}","amount":-75000,"category":"Food","account":"Wallet","type":"expense"}'`,
@@ -134,16 +134,12 @@ export default async function Home() {
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-              <p className="text-sm text-zinc-500">{kpi.label}</p>
-              <p className="mt-2 text-3xl font-semibold text-zinc-900">{kpi.value}</p>
-              <p className="mt-1 text-xs text-zinc-500">{kpi.caption}</p>
-            </div>
+            <DashboardKpiCard key={kpi.label} label={kpi.label} value={kpi.value} caption={kpi.caption} />
           ))}
         </section>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-          <DailySpendChart data={summary?.byDay ?? []} />
+          <DailySpendCard data={summary?.byDay ?? []} />
 
           <div className="flex flex-col gap-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Automation</h2>
@@ -155,62 +151,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white">
-          <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-zinc-900">Latest transactions</h2>
-              <p className="text-sm text-zinc-500">Most recent activity synced via public API.</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-100 text-sm">
-              <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
-                <tr>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Category</th>
-                  <th className="px-6 py-3">Account</th>
-                  <th className="px-6 py-3 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {transactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center text-zinc-500">
-                      No transactions recorded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  transactions.map((transaction) => (
-                    <tr key={transaction.id} className="hover:bg-zinc-50">
-                      <td className="px-6 py-4 align-middle text-zinc-600">
-                        {new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </td>
-                      <td className="px-6 py-4 align-middle">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-                            {transaction.category}
-                          </span>
-                          {transaction.subcategory && (
-                            <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600">
-                              {transaction.subcategory}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 align-middle text-zinc-600">{transaction.account}</td>
-                      <td className="px-6 py-4 align-middle text-right font-medium text-zinc-900">
-                        <span className={transaction.type === 'expense' ? 'text-red-500' : 'text-emerald-600'}>
-                          {transaction.type === 'expense' ? '-' : '+'}
-                          {formatCurrency(Math.abs(transaction.amount))}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <TransactionsTable transactions={transactions} />
       </div>
     </div>
   );
