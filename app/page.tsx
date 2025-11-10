@@ -2,6 +2,7 @@ import dynamic from 'next/dynamic';
 import { headers } from 'next/headers';
 
 import { QuickLinkButton } from '@/components/quick-link-button';
+import { formatCurrency } from '@/lib/currency';
 import type { Transaction } from '@/types/transaction';
 
 type SummaryResponse = {
@@ -29,14 +30,6 @@ const DailySpendChart = dynamic(() => import('@/components/daily-spend-chart'), 
     </div>
   ),
 });
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: value < 100 ? 2 : 0,
-  }).format(value);
-}
 
 async function computeBaseUrl() {
   const headersList = await headers();
@@ -118,7 +111,7 @@ export default async function Home() {
     {
       label: 'cURL ingestion',
       description: 'Fire-and-forget POST to /api/add from any automation runner.',
-      value: `curl -X POST ${baseUrl}/api/add -H 'Content-Type: application/json' -d '{"date":"${today}","amount":-12000,"category":"Food","account":"Wallet","type":"expense"}'`,
+      value: `curl -X POST ${baseUrl}/api/add -H 'Content-Type: application/json' -d '{"date":"${today}","amount":-75000,"category":"Food","account":"Wallet","type":"expense"}'`,
     },
     {
       label: 'Shortcuts trigger',
