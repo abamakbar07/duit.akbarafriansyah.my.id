@@ -1,3 +1,4 @@
+import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getBudgetConfig } from '@/lib/config';
@@ -62,11 +63,18 @@ function mapAccountStatuses(
   });
 }
 
-function applyBudgetFilters(query: unknown, filters: BudgetFilters) {
-  let builder = (query as any).eq('type', 'expense');
+type BudgetFilterQuery = PostgrestFilterBuilder<
+  Record<string, unknown>,
+  Record<string, unknown>,
+  Record<string, unknown>,
+  unknown
+>;
+
+function applyBudgetFilters<T extends BudgetFilterQuery>(query: T, filters: BudgetFilters): T {
+  let builder = query.eq('type', 'expense');
 
   if (filters.account) {
-    builder = (builder as any).eq('account', filters.account);
+    builder = builder.eq('account', filters.account);
   }
 
   return builder;
@@ -88,27 +96,29 @@ export async function fetchBudgetSummary(
   const period = getDefaultPeriod();
 
   const categoryTotalsPromise = hasCategoryBudgets
-    ? (applyBudgetFilters(
+    ? applyBudgetFilters(
         supabase
           .from('transactions')
           .select('category, total:amount.sum()')
+          .group('category')
           .gte('date', period.start)
           .lte('date', period.end)
-          .in('category', Object.keys(categories)) as any,
+          .in('category', Object.keys(categories)),
         filters
-      ) as any).returns()
+      ).returns<Array<{ category: string | null; total: number | null }>>()
     : Promise.resolve({ data: [], error: null } as const);
 
   const accountTotalsPromise = hasAccountBudgets
-    ? (applyBudgetFilters(
+    ? applyBudgetFilters(
         supabase
           .from('transactions')
           .select('account, total:amount.sum()')
+          .group('account')
           .gte('date', period.start)
           .lte('date', period.end)
-          .in('account', Object.keys(accounts)) as any,
+          .in('account', Object.keys(accounts)),
         filters
-      ) as any).returns()
+      ).returns<Array<{ account: string | null; total: number | null }>>()
     : Promise.resolve({ data: [], error: null } as const);
 
   const [categoryTotals, accountTotals] = await Promise.all([

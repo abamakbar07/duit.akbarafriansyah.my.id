@@ -82,6 +82,13 @@ export default async function Home() {
   const monthIncome = monthRows.reduce((total, day) => total + day.income, 0);
   const monthExpense = monthRows.reduce((total, day) => total + day.expense, 0);
   const monthNet = monthIncome - monthExpense;
+  const activeDays = monthRows.filter((day) => day.income > 0 || day.expense > 0).length;
+  const averageDailySpend = activeDays > 0 ? monthExpense / activeDays : 0;
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const projectedMonthExpense = averageDailySpend * daysInMonth;
+  const topSpendingCategory = [...(summary?.byCategory ?? [])]
+    .filter((entry) => entry.expense > 0)
+    .sort((a, b) => b.expense - a.expense)[0];
 
   const kpis = [
     {
@@ -98,6 +105,27 @@ export default async function Home() {
       label: 'Overall cash flow',
       value: formatCurrency(summary?.totals.net ?? 0),
       caption: `${formatCurrency(summary?.totals.income ?? 0)} income vs ${formatCurrency(summary?.totals.expense ?? 0)} spend`,
+    },
+  ];
+
+  const insights = [
+    {
+      title: todayTotals ? 'Today at a glance' : 'Waiting for activity',
+      description: todayTotals
+        ? `You've logged ${formatCurrency(todaysSpend)} in expenses today.`
+        : 'No spending captured yet today. Add a transaction to kick things off.',
+    },
+    {
+      title: 'Month-to-date trend',
+      description: monthRows.length
+        ? `Average daily spend sits at ${formatCurrency(averageDailySpend)} with a projected ${formatCurrency(projectedMonthExpense)} by month end.`
+        : 'Once this month has activity, we will chart your daily average and projection.',
+    },
+    {
+      title: 'Top category focus',
+      description: topSpendingCategory
+        ? `${topSpendingCategory.category} leads expenses at ${formatCurrency(topSpendingCategory.expense)} so far.`
+        : 'Track more categories to surface where your rupiah is going.',
     },
   ];
 
@@ -135,6 +163,15 @@ export default async function Home() {
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {kpis.map((kpi) => (
             <DashboardKpiCard key={kpi.label} label={kpi.label} value={kpi.value} caption={kpi.caption} />
+          ))}
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {insights.map((insight) => (
+            <div key={insight.title} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+              <h2 className="text-sm font-semibold text-zinc-500">{insight.title}</h2>
+              <p className="mt-2 text-sm text-zinc-700">{insight.description}</p>
+            </div>
           ))}
         </section>
 
