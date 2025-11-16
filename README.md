@@ -1,98 +1,73 @@
 # Personal Finance Tracker
 
-A lightweight Next.js app deployed on Vercel to track daily transactions stored in Supabase.
+A single-user Next.js App Router project deployed on Vercel to record, summarize, and export Supabase transactions. The stack is optimized for automations (Shortcuts, Make.com, curl) and daily self-serve dashboards—no auth, no multi-tenancy.
 
-## Features
+## Overview
+- **Landing snapshot (`/`)** – Server-rendered KPIs, a daily spend sparkline, automation quick links, and the latest 10 transactions pulled straight from Supabase.
+- **Interactive dashboard (`/dashboard`)** – URL-driven filters for date range, account, and category with KPI cards, per-day + per-category charts, an optional budget status card, and a 20-row transaction table.
+- **Public API routes** – `/api/add`, `/api/list`, `/api/summary`, and `/api/notify` power automations, Apple Shortcuts, and cron jobs.
+- **Deterministic backups** – `pnpm export:transactions` plus a scheduled GitHub Actions workflow export JSON + CSV snapshots into `public/backups`.
 
-- **Spending snapshot landing page:** At-a-glance KPIs, daily trend, and latest transactions sourced straight from Supabase.
-- **Interactive dashboard (`/dashboard`):** Composable widgets with filters for date range, account, and category alongside daily and category visualizations.
-- **Budget monitoring:** Month-to-date category and account limits rendered on the dashboard with automation-friendly alerts.
+The entire system still relies on a **single Supabase table named `transactions`** with the columns `id`, `date`, `account`, `category`, `subcategory`, `note`, `amount`, `type`, and `created_at`.
 
-## Prerequisites
-
-Set the following environment variables for server-side features, alerts, and the exporter:
+## Environment variables
+Set these variables in Vercel, GitHub Actions, or your shell before running any server/API features:
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `BUDGET_NOTIFY_WEBHOOK_URL` *(optional)* – HTTP endpoint that receives JSON payloads when an overspend is detected.
+- `BUDGET_NOTIFY_WEBHOOK_URL` *(optional)* – POST target for `/api/notify` alerts.
 
-Keep these values **server-only** (Vercel, GitHub Actions, or your shell session). They must never be exposed to the browser or committed to the repository.
+Keep them server-side only—never expose them to the browser bundle or commit them to the repo.
 
 ## Development
-
-Install dependencies and start the dev server:
+Install dependencies and run the dev server:
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-## Budgets & Alerts
-
-### Configure monthly limits
-
-Monthly budgets live in [`lib/config.ts`](./lib/config.ts) as a plain JSON object so they can be tracked in Git, synced via `git pull`, or edited by automations. Update the `categories` and `accounts` maps with IDR values to match your envelopes:
-
-```ts
-export const budgetConfig = {
-  currency: 'IDR',
-  categories: {
-    Groceries: 3_000_000,
-    Dining: 1_500_000,
-    // ...
-  },
-  accounts: {
-    'BCA Debit': 5_000_000,
-  },
-};
-```
-
-Save and redeploy to update the dashboard and alert endpoints instantly. Removing all entries disables budget calculations.
-
-### Dashboard overview
-
-The `/dashboard` page now includes a **Budget status** card. It calculates month-to-date expenses per configured category/account, displays remaining rupiah, and highlights overspend in red for quick triage.
-
-### API integrations
-
-- `GET /api/summary` returns a `budgets` object alongside the existing totals so Shortcuts, Make.com, or scripts can reuse the same data source as the UI.
-- `GET /api/notify` triggers an on-demand evaluation. The response includes overspent categories/accounts and logs to the server console. When `BUDGET_NOTIFY_WEBHOOK_URL` is set, the route forwards the payload to that webhook.
-
-Example Shortcut/Make.com webhook step:
+Useful scripts:
 
 ```bash
-curl https://duit.akbarafriansyah.my.id/api/notify \
-  | jq '.overspentCategories, .overspentAccounts'
+pnpm lint                # Run ESLint
+pnpm export:transactions # Compile + execute the TypeScript exporter
 ```
 
-- **Make.com:** Create an HTTP module that polls `/api/notify`. Use a filter where `status == "alert"` to branch into notifications (Telegram, email, etc.).
-- **Apple Shortcuts:** Add a “Get Contents of URL” action pointing to `/api/notify`, parse the JSON, and conditionally display an alert or push a reminder.
+## API routes
+| Route | Method | Description |
+| --- | --- | --- |
+| `/api/add` | `POST` | Inserts a transaction. Expects JSON with `date`, `amount`, `type` (`income` or `expense`), and optional `account`, `category`, `subcategory`, `note`. |
+| `/api/list` | `GET` | Returns transactions ordered by date/created_at. Supports `startDate`, `endDate`, `account`, and `category` query params to mirror dashboard filters. |
+| `/api/summary` | `GET` | Aggregates totals, per-day, and per-category series plus the current budget status (if configured). Accepts the same filter query params. |
+| `/api/notify` | `GET` | Evaluates current budgets and optionally forwards overspend payloads to `BUDGET_NOTIFY_WEBHOOK_URL`. |
 
-Both endpoints are stateless and safe to call from cron jobs or automations.
+### Automation tips
+- **curl ingestion** – `curl -X POST https://<host>/api/add -H 'Content-Type: application/json' -d '{"date":"2024-06-01","amount":-75000,"category":"Food","account":"Wallet","type":"expense"}'`
+- **Apple Shortcuts** – Use a “Get Contents of URL” action targeting `/api/notify` to display overspend alerts inline on iOS/macOS.
+- **Make.com / cron** – Poll `/api/summary` or `/api/notify` for headless monitoring. All routes respond with JSON.
 
-## Transaction Backups
+## Budgets & alerts
+Budgets are defined in [`lib/config.ts`](./lib/config.ts) via a typed `BudgetConfig`. Update the `categories` and `accounts` maps (IDR values by default) to enable:
+- The **Budget status** card on `/dashboard`.
+- `budgets` metadata returned by `/api/summary`.
+- Overspend checks inside `/api/notify`.
 
-### Run an export locally
+Deleting all entries disables budget features without touching code.
 
+## Backups
+### Manual export
 ```bash
 SUPABASE_URL=... \
 SUPABASE_SERVICE_ROLE_KEY=... \
 pnpm export:transactions
 ```
+Exports land in `public/backups/<timestamp>.json` and `.csv` (ignored by Git but available locally).
 
-This command compiles the TypeScript exporter, runs it, and writes both JSON and CSV files under `public/backups/<timestamp>.{json,csv}`. Files are ignored by Git but remain available locally for manual download.
-
-### Scheduled exports
-
-A GitHub Actions workflow (`.github/workflows/export.yml`) runs daily at 02:00 UTC. It executes the same script with repository secrets and uploads the generated `public/backups` directory as a run artifact. Download the latest artifact from the workflow run to retrieve off-site backups.
-
-### Manual retrieval
-
-1. Navigate to the **Actions** tab in GitHub.
-2. Open the latest **Export transactions backup** run.
-3. Download the `transactions-backup` artifact – it contains the JSON and CSV files produced on that run.
+### Scheduled GitHub Action
+`.github/workflows/export.yml` runs nightly at 02:00 UTC, executes the same script, and uploads `public/backups` as the `transactions-backup` artifact. Download the latest artifact from the workflow run when you need an off-site copy.
 
 ## Notes
-
-- Backups rely on the Supabase service role key, which grants full access. Store it only in secure server-side environments (Vercel project settings or GitHub repository secrets).
-- The exporter queries the `transactions` table ordered by `date` and `created_at` to produce deterministic outputs.
+- The Supabase service role key grants full access; store it securely.
+- Charts and KPI cards rely entirely on data returned by `/api/summary`, so automation clients get the same numbers the UI displays.
+- Dashboard filters are reflected in the URL, making saved views and shared links trivial.
