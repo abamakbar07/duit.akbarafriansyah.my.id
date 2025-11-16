@@ -1,7 +1,7 @@
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import type { TransactionType } from '@/types/transaction';
+import type { GenericPostgrestQuery } from '@/lib/postgrest';
 
-type FilterableQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>, unknown>;
+type FilterableQuery = GenericPostgrestQuery;
 
 export interface SummaryFilterOptions {
   startDate?: string;

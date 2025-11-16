@@ -1,7 +1,8 @@
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getBudgetConfig } from '@/lib/config';
+import type { GenericPostgrestQuery } from '@/lib/postgrest';
+import { withGroupBy } from '@/lib/postgrest';
 import type {
   BudgetAccountStatus,
   BudgetCategoryStatus,
@@ -63,12 +64,7 @@ function mapAccountStatuses(
   });
 }
 
-type BudgetFilterQuery = PostgrestFilterBuilder<
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-  unknown
->;
+type BudgetFilterQuery = GenericPostgrestQuery;
 
 function applyBudgetFilters<T extends BudgetFilterQuery>(query: T, filters: BudgetFilters): T {
   let builder = query.eq('type', 'expense');
@@ -97,10 +93,12 @@ export async function fetchBudgetSummary(
 
   const categoryTotalsPromise = hasCategoryBudgets
     ? applyBudgetFilters(
-        supabase
-          .from('transactions')
-          .select('category, total:amount.sum()')
-          .group('category')
+        withGroupBy(
+          supabase
+            .from('transactions')
+            .select('category, total:amount.sum()'),
+          'category'
+        )
           .gte('date', period.start)
           .lte('date', period.end)
           .in('category', Object.keys(categories)),
@@ -110,10 +108,12 @@ export async function fetchBudgetSummary(
 
   const accountTotalsPromise = hasAccountBudgets
     ? applyBudgetFilters(
-        supabase
-          .from('transactions')
-          .select('account, total:amount.sum()')
-          .group('account')
+        withGroupBy(
+          supabase
+            .from('transactions')
+            .select('account, total:amount.sum()'),
+          'account'
+        )
           .gte('date', period.start)
           .lte('date', period.end)
           .in('account', Object.keys(accounts)),
