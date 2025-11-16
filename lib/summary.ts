@@ -1,7 +1,7 @@
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import type { TransactionType } from '@/types/transaction';
+import type { GenericPostgrestQuery } from '@/lib/postgrest';
 
-type FilterableQuery = PostgrestFilterBuilder<any, any, any, any>;
+type FilterableQuery = GenericPostgrestQuery;
 
 export interface SummaryFilterOptions {
   startDate?: string;
@@ -18,8 +18,20 @@ export interface AggregateRow {
 }
 
 export function normalizeTotals(rows: AggregateRow[]) {
-  const income = Number(rows.find((row) => row.type === 'income')?.total ?? 0);
-  const expense = Number(rows.find((row) => row.type === 'expense')?.total ?? 0);
+  const { income, expense } = rows.reduce(
+    (acc, row) => {
+      const total = Number(row.total ?? 0);
+
+      if (row.type === 'income') {
+        acc.income += total;
+      } else if (row.type === 'expense') {
+        acc.expense += total;
+      }
+
+      return acc;
+    },
+    { income: 0, expense: 0 }
+  );
 
   return {
     income,
@@ -40,15 +52,15 @@ export function normalizeDailySeries(rows: AggregateRow[]) {
     const existing = map.get(row.date) ?? { date: row.date, income: 0, expense: 0 };
 
     if (row.type === 'income') {
-      existing.income = total;
+      existing.income += total;
     } else {
-      existing.expense = total;
+      existing.expense += total;
     }
 
     map.set(row.date, existing);
   }
 
-  return Array.from(map.values());
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function normalizeCategorySeries(rows: AggregateRow[]) {
@@ -63,15 +75,15 @@ export function normalizeCategorySeries(rows: AggregateRow[]) {
     const existing = map.get(row.category) ?? { category: row.category, income: 0, expense: 0 };
 
     if (row.type === 'income') {
-      existing.income = total;
+      existing.income += total;
     } else {
-      existing.expense = total;
+      existing.expense += total;
     }
 
     map.set(row.category, existing);
   }
 
-  return Array.from(map.values());
+  return Array.from(map.values()).sort((a, b) => a.category.localeCompare(b.category));
 }
 
 export function applySummaryFilters<T extends FilterableQuery>(

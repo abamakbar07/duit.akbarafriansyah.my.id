@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { fetchBudgetSummary } from '@/lib/budgets';
+import { withGroupBy } from '@/lib/postgrest';
 import { createClient } from '@/lib/supabase';
 import {
   applySummaryFilters,
@@ -25,23 +26,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const supabase = createClient();
 
   const totalsQuery = applySummaryFilters(
-    supabase.from('transactions').select('type, total:amount.sum()'),
+    withGroupBy(
+      supabase.from('transactions').select('type, total:amount.sum()'),
+      'type'
+    ),
     filters
   );
 
   const byDayQuery = applySummaryFilters(
-    supabase
-      .from('transactions')
-      .select('date, type, total:amount.sum()')
-      .order('date', { ascending: true }),
+    withGroupBy(
+      supabase
+        .from('transactions')
+        .select('date, type, total:amount.sum()')
+        .order('date', { ascending: true }),
+      'date, type'
+    ),
     filters
   );
 
   const byCategoryQuery = applySummaryFilters(
-    supabase
-      .from('transactions')
-      .select('category, type, total:amount.sum()')
-      .order('category', { ascending: true }),
+    withGroupBy(
+      supabase
+        .from('transactions')
+        .select('category, type, total:amount.sum()')
+        .order('category', { ascending: true }),
+      'category, type'
+    ),
     filters
   );
 

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getBudgetConfig } from '@/lib/config';
+import type { GenericPostgrestQuery } from '@/lib/postgrest';
+import { withGroupBy } from '@/lib/postgrest';
 import type {
   BudgetAccountStatus,
   BudgetCategoryStatus,
@@ -62,11 +64,13 @@ function mapAccountStatuses(
   });
 }
 
-function applyBudgetFilters(query: unknown, filters: BudgetFilters) {
-  let builder = (query as any).eq('type', 'expense');
+type BudgetFilterQuery = GenericPostgrestQuery;
+
+function applyBudgetFilters<T extends BudgetFilterQuery>(query: T, filters: BudgetFilters): T {
+  let builder = query.eq('type', 'expense');
 
   if (filters.account) {
-    builder = (builder as any).eq('account', filters.account);
+    builder = builder.eq('account', filters.account);
   }
 
   return builder;
@@ -88,27 +92,33 @@ export async function fetchBudgetSummary(
   const period = getDefaultPeriod();
 
   const categoryTotalsPromise = hasCategoryBudgets
-    ? (applyBudgetFilters(
-        supabase
-          .from('transactions')
-          .select('category, total:amount.sum()')
+    ? applyBudgetFilters(
+        withGroupBy(
+          supabase
+            .from('transactions')
+            .select('category, total:amount.sum()'),
+          'category'
+        )
           .gte('date', period.start)
           .lte('date', period.end)
-          .in('category', Object.keys(categories)) as any,
+          .in('category', Object.keys(categories)),
         filters
-      ) as any).returns()
+      ).returns<Array<{ category: string | null; total: number | null }>>()
     : Promise.resolve({ data: [], error: null } as const);
 
   const accountTotalsPromise = hasAccountBudgets
-    ? (applyBudgetFilters(
-        supabase
-          .from('transactions')
-          .select('account, total:amount.sum()')
+    ? applyBudgetFilters(
+        withGroupBy(
+          supabase
+            .from('transactions')
+            .select('account, total:amount.sum()'),
+          'account'
+        )
           .gte('date', period.start)
           .lte('date', period.end)
-          .in('account', Object.keys(accounts)) as any,
+          .in('account', Object.keys(accounts)),
         filters
-      ) as any).returns()
+      ).returns<Array<{ account: string | null; total: number | null }>>()
     : Promise.resolve({ data: [], error: null } as const);
 
   const [categoryTotals, accountTotals] = await Promise.all([
