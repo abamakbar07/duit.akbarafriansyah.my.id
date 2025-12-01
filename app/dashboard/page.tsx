@@ -1,11 +1,10 @@
-import { headers } from 'next/headers';
-
 import { BudgetStatus } from '@/components/dashboard/budget-status';
 import { CategoryBreakdownChart } from '@/components/dashboard/category-breakdown-chart';
 import { DailySpendCard } from '@/components/dashboard/daily-spend-card';
 import { DashboardFilters } from '@/components/dashboard/dashboard-filters';
 import { DashboardKpiCard } from '@/components/dashboard/kpi-card';
 import { TransactionsTable } from '@/components/dashboard/transactions-table';
+import { resolveBaseUrl } from '@/lib/base-url';
 import { formatCurrency } from '@/lib/currency';
 import type { BudgetSummary } from '@/types/budget';
 import type { Transaction } from '@/types/transaction';
@@ -35,18 +34,6 @@ type DashboardFiltersState = {
   account?: string;
   category?: string;
 };
-
-async function computeBaseUrl() {
-  const headersList = await headers();
-  const protocol = headersList.get('x-forwarded-proto') ?? 'http';
-  const host = headersList.get('host');
-
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-}
 
 function normalizeFilters(searchParams: Record<string, string | string[] | undefined>): DashboardFiltersState {
   const getParam = (key: string) => {
@@ -124,7 +111,7 @@ export default async function Dashboard({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = normalizeFilters(searchParams);
-  const baseUrl = await computeBaseUrl();
+  const baseUrl = resolveBaseUrl();
   const [summary, transactions] = await Promise.all([
     getSummary(baseUrl, filters),
     getTransactions(baseUrl, filters),

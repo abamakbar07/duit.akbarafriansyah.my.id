@@ -1,9 +1,8 @@
-import { headers } from 'next/headers';
-
 import { DailySpendCard } from '@/components/dashboard/daily-spend-card';
 import { DashboardKpiCard } from '@/components/dashboard/kpi-card';
 import { TransactionsTable } from '@/components/dashboard/transactions-table';
 import { QuickLinkButton } from '@/components/quick-link-button';
+import { resolveBaseUrl } from '@/lib/base-url';
 import { formatCurrency } from '@/lib/currency';
 import type { Transaction } from '@/types/transaction';
 
@@ -24,18 +23,6 @@ type SummaryResponse = {
     expense: number;
   }>;
 };
-
-async function computeBaseUrl() {
-  const headersList = await headers();
-  const protocol = headersList.get('x-forwarded-proto') ?? 'http';
-  const host = headersList.get('host');
-
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-}
 
 async function getSummary(baseUrl: string): Promise<SummaryResponse | null> {
   try {
@@ -69,7 +56,7 @@ async function getTransactions(baseUrl: string): Promise<Transaction[]> {
 }
 
 export default async function Home() {
-  const baseUrl = await computeBaseUrl();
+  const baseUrl = resolveBaseUrl();
   const [summary, transactions] = await Promise.all([getSummary(baseUrl), getTransactions(baseUrl)]);
 
   const today = new Date().toISOString().slice(0, 10);
