@@ -100,6 +100,7 @@ async function getTransactions(baseUrl: string, filters: DashboardFiltersState):
     if (filters.endDate) params.set('endDate', filters.endDate);
     if (filters.account) params.set('account', filters.account);
     if (filters.category) params.set('category', filters.category);
+    params.set('limit', '20');
 
     const query = params.toString();
     const response = await fetch(`${baseUrl}/api/list${query ? `?${query}` : ''}`, {

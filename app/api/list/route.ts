@@ -10,6 +10,19 @@ interface ListFilters {
   endDate?: string;
   account?: string;
   category?: string;
+  limit?: number;
+}
+
+function parseLimit(value: string | null): number | undefined {
+  if (!value) return undefined;
+
+  const limit = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(limit) || limit <= 0) {
+    return undefined;
+  }
+
+  return Math.min(limit, 100);
 }
 
 export async function GET(request: NextRequest) {
@@ -19,6 +32,7 @@ export async function GET(request: NextRequest) {
     endDate: searchParams.get('endDate') ?? undefined,
     account: searchParams.get('account') ?? undefined,
     category: searchParams.get('category') ?? undefined,
+    limit: parseLimit(searchParams.get('limit')),
   };
 
   const supabase = createClient();
@@ -28,6 +42,10 @@ export async function GET(request: NextRequest) {
     .select('*')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false });
+
+  if (filters.limit) {
+    query = query.limit(filters.limit);
+  }
 
   if (filters.startDate) {
     query = query.gte('date', filters.startDate);

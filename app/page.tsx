@@ -54,7 +54,8 @@ async function getSummary(baseUrl: string): Promise<SummaryResponse | null> {
 
 async function getTransactions(baseUrl: string): Promise<Transaction[]> {
   try {
-    const response = await fetch(`${baseUrl}/api/list`, { cache: 'no-store' });
+    const params = new URLSearchParams({ limit: '10' });
+    const response = await fetch(`${baseUrl}/api/list?${params.toString()}`, { cache: 'no-store' });
 
     if (!response.ok) {
       return [];
