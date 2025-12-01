@@ -11,19 +11,36 @@ interface BudgetFilters {
   account?: string;
 }
 
-function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0] ?? '';
+const BUDGET_TIMEZONE = process.env.BUDGET_TIMEZONE ?? 'Asia/Jakarta';
+
+function formatDateParts(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getLocalDateParts(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const [year, month, day] = formatter.format(date).split('-').map(Number);
+
+  return { year, month, day };
 }
 
 function getDefaultPeriod() {
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const timeZone = BUDGET_TIMEZONE;
+  const { year, month, day } = getLocalDateParts(new Date(), timeZone);
+  const start = formatDateParts(year, month, 1);
+  const end = formatDateParts(year, month, day);
 
-  return {
-    start: formatDate(start),
-    end: formatDate(end),
-  };
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('Budget period derived from timezone', { timeZone, start, end });
+  }
+
+  return { start, end };
 }
 
 function mapCategoryStatuses(

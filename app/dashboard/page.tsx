@@ -36,6 +36,11 @@ type DashboardFiltersState = {
   category?: string;
 };
 
+type PaginationState = {
+  page: number;
+  pageSize: number;
+};
+
 async function computeBaseUrl() {
   const headersList = await headers();
   const protocol = headersList.get('x-forwarded-proto') ?? 'http';
@@ -67,6 +72,27 @@ function normalizeFilters(searchParams: Record<string, string | string[] | undef
   };
 }
 
+function normalizePagination(searchParams: Record<string, string | string[] | undefined>): PaginationState {
+  const getNumberParam = (key: string) => {
+    const value = searchParams[key];
+
+    if (Array.isArray(value)) {
+      return Number(value[0]);
+    }
+
+    if (typeof value === 'string') {
+      return Number(value);
+    }
+
+    return undefined;
+  };
+
+  const page = Math.max(getNumberParam('page') || 1, 1);
+  const pageSize = Math.max(getNumberParam('pageSize') || 50, 1);
+
+  return { page, pageSize };
+}
+
 async function getSummary(baseUrl: string, filters: DashboardFiltersState): Promise<SummaryResponse | null> {
   try {
     const params = new URLSearchParams();
@@ -92,7 +118,10 @@ async function getSummary(baseUrl: string, filters: DashboardFiltersState): Prom
   }
 }
 
-async function getTransactions(baseUrl: string, filters: DashboardFiltersState): Promise<Transaction[]> {
+async function getTransactions(
+  baseUrl: string,
+  filters: DashboardFiltersState & PaginationState
+): Promise<Transaction[]> {
   try {
     const params = new URLSearchParams();
 
@@ -100,6 +129,8 @@ async function getTransactions(baseUrl: string, filters: DashboardFiltersState):
     if (filters.endDate) params.set('endDate', filters.endDate);
     if (filters.account) params.set('account', filters.account);
     if (filters.category) params.set('category', filters.category);
+    params.set('page', String(filters.page));
+    params.set('pageSize', String(filters.pageSize));
 
     const query = params.toString();
     const response = await fetch(`${baseUrl}/api/list${query ? `?${query}` : ''}`, {
@@ -124,10 +155,11 @@ export default async function Dashboard({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = normalizeFilters(searchParams);
+  const pagination = normalizePagination(searchParams);
   const baseUrl = await computeBaseUrl();
   const [summary, transactions] = await Promise.all([
     getSummary(baseUrl, filters),
-    getTransactions(baseUrl, filters),
+    getTransactions(baseUrl, { ...filters, ...pagination }),
   ]);
 
   const displayedTransactions = transactions.slice(0, 20);

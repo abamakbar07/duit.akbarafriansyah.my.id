@@ -25,7 +25,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const supabase = createClient();
 
   const totalsQuery = applySummaryFilters(
-    supabase.from('transactions').select('type, total:amount.sum()'),
+    supabase.from('transactions').select('type, total:amount.sum()').group('type'),
     filters
   );
 
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     supabase
       .from('transactions')
       .select('date, type, total:amount.sum()')
+      .group('date, type')
       .order('date', { ascending: true }),
     filters
   );
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     supabase
       .from('transactions')
       .select('category, type, total:amount.sum()')
+      .group('category, type')
       .order('category', { ascending: true }),
     filters
   );

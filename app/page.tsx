@@ -54,14 +54,14 @@ async function getSummary(baseUrl: string): Promise<SummaryResponse | null> {
 
 async function getTransactions(baseUrl: string): Promise<Transaction[]> {
   try {
-    const response = await fetch(`${baseUrl}/api/list`, { cache: 'no-store' });
+    const response = await fetch(`${baseUrl}/api/list?pageSize=10`, { cache: 'no-store' });
 
     if (!response.ok) {
       return [];
     }
 
     const payload = (await response.json()) as { data?: Transaction[] };
-    return payload.data?.slice(0, 10) ?? [];
+    return payload.data ?? [];
   } catch (error) {
     console.error('Failed to fetch latest transactions', error);
     return [];

@@ -21,11 +21,16 @@ export async function GET(request: NextRequest) {
     category: searchParams.get('category') ?? undefined,
   };
 
+  const pageSize = Math.max(Number(searchParams.get('pageSize')) || 50, 1);
+  const page = Math.max(Number(searchParams.get('page')) || 1, 1);
+  const rangeStart = (page - 1) * pageSize;
+  const rangeEnd = rangeStart + pageSize - 1;
+
   const supabase = createClient();
 
   let query = supabase
     .from('transactions')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('date', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -45,11 +50,19 @@ export async function GET(request: NextRequest) {
     query = query.eq('category', filters.category);
   }
 
-  const { data, error } = await query.returns<Transaction[]>();
+  const { data, error, count } = await query
+    .limit(pageSize)
+    .range(rangeStart, rangeEnd)
+    .returns<Transaction[]>();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data });
+  return NextResponse.json({
+    data,
+    total: count ?? 0,
+    page,
+    pageSize,
+  });
 }
