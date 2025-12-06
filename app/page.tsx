@@ -5,7 +5,12 @@ import { DashboardKpiCard } from '@/components/dashboard/kpi-card';
 import { TransactionsTable } from '@/components/dashboard/transactions-table';
 import { QuickLinkButton } from '@/components/quick-link-button';
 import { formatCurrency } from '@/lib/currency';
+import { createClient } from '@/lib/supabase';
+import { normalizeCategorySeries, normalizeDailySeries, normalizeTotals } from '@/lib/summary';
+import type { AggregateRow } from '@/lib/summary';
 import type { Transaction } from '@/types/transaction';
+
+export const dynamic = 'force-dynamic';
 
 type SummaryResponse = {
   totals: {
@@ -37,31 +42,67 @@ async function computeBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 }
 
-async function getSummary(baseUrl: string): Promise<SummaryResponse | null> {
+async function getSummary(): Promise<SummaryResponse | null> {
   try {
-    const response = await fetch(`${baseUrl}/api/summary`, { cache: 'no-store' });
+    const supabase = createClient();
 
-    if (!response.ok) {
+    const totalsQuery = supabase
+      .from('transactions')
+      .select('type, total:amount.sum()')
+      .returns<AggregateRow[]>();
+    const byDayQuery = supabase
+      .from('transactions')
+      .select('date, type, total:amount.sum()')
+      .order('date', { ascending: true })
+      .returns<AggregateRow[]>();
+    const byCategoryQuery = supabase
+      .from('transactions')
+      .select('category, type, total:amount.sum()')
+      .order('category', { ascending: true })
+      .returns<AggregateRow[]>();
+
+    const [totalsResult, byDayResult, byCategoryResult] = await Promise.all([
+      totalsQuery,
+      byDayQuery,
+      byCategoryQuery,
+    ]);
+
+    if (totalsResult.error || byDayResult.error || byCategoryResult.error) {
+      console.error(
+        'Failed to fetch summary',
+        totalsResult.error?.message ?? byDayResult.error?.message ?? byCategoryResult.error?.message
+      );
       return null;
     }
 
-    return (await response.json()) as SummaryResponse;
+    return {
+      totals: normalizeTotals(totalsResult.data ?? []),
+      byDay: normalizeDailySeries(byDayResult.data ?? []),
+      byCategory: normalizeCategorySeries(byCategoryResult.data ?? []),
+    };
   } catch (error) {
     console.error('Failed to fetch summary', error);
     return null;
   }
 }
 
-async function getTransactions(baseUrl: string): Promise<Transaction[]> {
+async function getTransactions(): Promise<Transaction[]> {
   try {
-    const response = await fetch(`${baseUrl}/api/list`, { cache: 'no-store' });
+    const supabase = createClient();
 
-    if (!response.ok) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Failed to fetch latest transactions', error.message);
       return [];
     }
 
-    const payload = (await response.json()) as { data?: Transaction[] };
-    return payload.data?.slice(0, 10) ?? [];
+    return data ?? [];
   } catch (error) {
     console.error('Failed to fetch latest transactions', error);
     return [];
@@ -70,7 +111,7 @@ async function getTransactions(baseUrl: string): Promise<Transaction[]> {
 
 export default async function Home() {
   const baseUrl = await computeBaseUrl();
-  const [summary, transactions] = await Promise.all([getSummary(baseUrl), getTransactions(baseUrl)]);
+  const [summary, transactions] = await Promise.all([getSummary(), getTransactions()]);
 
   const today = new Date().toISOString().slice(0, 10);
   const todayTotals = summary?.byDay.find((day) => day.date === today);
